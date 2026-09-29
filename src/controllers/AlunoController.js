@@ -1,5 +1,15 @@
 const alunoService = require("../services/AlunoService");
 
+// Erros nossos (ApiError) têm statusCode e mensagem pensada para o cliente.
+// Qualquer outro erro (banco fora do ar, bug) vira 500 sem expor detalhes internos.
+function responderErro(response, e){
+    if(e.statusCode){
+        return response.status(e.statusCode).json({error: e.message});
+    }
+    console.error(e);
+    return response.status(500).json({error: "Erro interno do servidor"});
+}
+
 class AlunoController{
 
     async findMany(request, response){
@@ -11,6 +21,15 @@ class AlunoController{
 
         const {alunos, total} = await alunoService.findMany(page, pageSize, orderBy, order);
         return response.status(200).json({alunos, total});
+    }
+
+    async findUnique(request, response){
+        try{
+            const aluno = await alunoService.findUnique(request.params.id);
+            return response.status(200).json({aluno});
+        }catch(e){
+            return responderErro(response, e);
+        }
     }
 
     async create(request, response){

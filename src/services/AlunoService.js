@@ -1,5 +1,6 @@
 const prisma = require("../databases/prisma");
 const AlunoInvalidoError = require("../errors/AlunoInvalidoError");
+const AlunoNaoEncontradoError = require("../errors/AlunoNaoEncontradoError");
 
 // campos do model Aluno que podem ser usados na ordenação
 const CAMPOS_ORDENACAO = ["id", "nome", "email", "createdAt", "updatedAt"];
@@ -25,6 +26,25 @@ class AlunoService{
         const total = await prisma.aluno.count();
 
         return {alunos, total};
+    }
+
+    async findUnique(id){
+        // o id chega como texto (request.params) e o campo no schema é Int
+        const idNumerico = Number(id);
+        // id que não é inteiro (ex.: /alunos/abc) nunca corresponde a um aluno
+        if(!Number.isInteger(idNumerico)){
+            throw new AlunoNaoEncontradoError();
+        }
+
+        //SELECT * FROM alunos WHERE id = ?
+        const aluno = await prisma.aluno.findUnique({
+            where: { id: idNumerico }
+        });
+        if(!aluno){
+            throw new AlunoNaoEncontradoError();
+        }
+
+        return aluno;
     }
 
     async create(aluno){
