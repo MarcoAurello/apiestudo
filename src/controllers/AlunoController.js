@@ -41,6 +41,16 @@ class AlunoController{
         }
     }
 
+    async delete(request, response){
+        try{
+            await alunoService.delete(request.params.id);
+            // 204 No Content: remoção bem-sucedida, sem corpo na resposta
+            return response.status(204).send();
+        }catch(e){
+            return responderErro(response, e);
+        }
+    }
+
     async create(request, response){
         try{
             const aluno = await alunoService.create(request.body);

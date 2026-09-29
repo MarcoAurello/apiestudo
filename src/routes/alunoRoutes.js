@@ -13,5 +13,6 @@ router.get("/:id", alunoController.findUnique);
 router.post("/", validarAluno, alunoController.create);
 // PATCH (e não PUT) porque a atualização é parcial: nome e/ou email
 router.patch("/:id", validarAtualizacaoAluno, alunoController.update);
+router.delete("/:id", alunoController.delete);
 
 module.exports = router;

@@ -78,6 +78,16 @@ class AlunoService{
         return alunoAtualizado;
     }
 
+    async delete(id){
+        // verifica se existe antes de remover: lança AlunoNaoEncontradoError (404) se não
+        const aluno = await this.findUnique(id);
+
+        //DELETE FROM alunos WHERE id = ?
+        await prisma.aluno.delete({
+            where: { id: aluno.id }
+        });
+    }
+
     async create(aluno){
         const {nome, email} = aluno;
         if(!nome || !email){
