@@ -1,6 +1,7 @@
 const prisma = require("../databases/prisma");
 const AlunoInvalidoError = require("../errors/AlunoInvalidoError");
 const AlunoNaoEncontradoError = require("../errors/AlunoNaoEncontradoError");
+const EmailJaCadastradoError = require("../errors/EmailJaCadastradoError");
 
 // campos do model Aluno que podem ser usados na ordenação
 const CAMPOS_ORDENACAO = ["id", "nome", "email", "createdAt", "updatedAt"];
@@ -45,6 +46,36 @@ class AlunoService{
         }
 
         return aluno;
+    }
+
+    async update(id, dados){
+        const {nome, email} = dados;
+
+        // Corpo vazio ou sem nenhum campo válido: reaproveita AlunoInvalidoError,
+        // pois é o mesmo tipo de problema do cadastro (dados do aluno inválidos, 400).
+        if(nome === undefined && email === undefined){
+            throw new AlunoInvalidoError("Informe nome e/ou email para atualizar");
+        }
+
+        // Aluno inexistente: reaproveita AlunoNaoEncontradoError (404) via findUnique
+        const aluno = await this.findUnique(id);
+
+        // Email duplicado: verifica antes de salvar, em vez de deixar o Prisma
+        // estourar o erro de @unique (P2002) e virar um 500 genérico.
+        if(email !== undefined){
+            const donoDoEmail = await prisma.aluno.findUnique({ where: { email } });
+            if(donoDoEmail && donoDoEmail.id !== aluno.id){
+                throw new EmailJaCadastradoError();
+            }
+        }
+
+        //UPDATE alunos SET ... WHERE id = ?
+        const alunoAtualizado = await prisma.aluno.update({
+            where: { id: aluno.id },
+            data: { nome, email }  // campos undefined são ignorados pelo Prisma
+        });
+
+        return alunoAtualizado;
     }
 
     async create(aluno){
