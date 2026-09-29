@@ -1,0 +1,254 @@
+{
+  "info": {
+    "name": "API Alunos - Exercício Primeira Avaliação",
+    "description": "Rotas do exercício: ordenação + total, findUnique, update e delete.\n\nPode rodar requisição por requisição ou tudo de uma vez pelo Runner (Run collection) — as requisições estão em ordem: criam os próprios alunos de teste e removem no final.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "alunoId", "value": "" },
+    { "key": "outroAlunoId", "value": "" },
+    { "key": "outroEmail", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 - Preparação (cria alunos de teste)",
+      "item": [
+        {
+          "name": "POST criar aluno (salva alunoId)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('alunoId', pm.response.json().aluno.id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Postman Teste\",\n  \"email\": \"postman{{$timestamp}}@ex.com\"\n}" },
+            "url": "{{baseUrl}}/alunos"
+          }
+        },
+        {
+          "name": "POST criar outro aluno (para testar email duplicado)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const a = pm.response.json().aluno;",
+            "pm.collectionVariables.set('outroAlunoId', a.id);",
+            "pm.collectionVariables.set('outroEmail', a.email);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Outro Aluno\",\n  \"email\": \"outro{{$timestamp}}@ex.com\"\n}" },
+            "url": "{{baseUrl}}/alunos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1 - Ordenação e total (GET /alunos)",
+      "item": [
+        {
+          "name": "Padrão (id asc)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('tem alunos e total', () => { pm.expect(j.alunos).to.be.an('array'); pm.expect(j.total).to.be.a('number'); });",
+            "const ids = j.alunos.map(a => a.id);",
+            "pm.test('ordenado por id asc', () => pm.expect(ids).to.eql([...ids].sort((a,b)=>a-b)));"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/alunos" }
+        },
+        {
+          "name": "orderBy=nome&order=asc",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const nomes = pm.response.json().alunos.map(a => a.nome);",
+            "pm.test('ordenado por nome asc', () => pm.expect(nomes).to.eql([...nomes].sort((a,b)=>a.localeCompare(b))));"
+          ]}}],
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/alunos?orderBy=nome&order=asc",
+            "host": ["{{baseUrl}}"], "path": ["alunos"],
+            "query": [{ "key": "orderBy", "value": "nome" }, { "key": "order", "value": "asc" }]
+          }}
+        },
+        {
+          "name": "orderBy=createdAt&order=desc",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const datas = pm.response.json().alunos.map(a => a.createdAt);",
+            "pm.test('ordenado por createdAt desc', () => pm.expect(datas).to.eql([...datas].sort().reverse()));"
+          ]}}],
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/alunos?orderBy=createdAt&order=desc",
+            "host": ["{{baseUrl}}"], "path": ["alunos"],
+            "query": [{ "key": "orderBy", "value": "createdAt" }, { "key": "order", "value": "desc" }]
+          }}
+        },
+        {
+          "name": "Paginação + ordenação (page=2&pageSize=2&orderBy=email)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('no máximo 2 por página', () => pm.expect(j.alunos.length).to.be.at.most(2));",
+            "pm.test('total é o do banco inteiro, não da página', () => pm.expect(j.total).to.be.at.least(j.alunos.length));"
+          ]}}],
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/alunos?page=2&pageSize=2&orderBy=email&order=asc",
+            "host": ["{{baseUrl}}"], "path": ["alunos"],
+            "query": [
+              { "key": "page", "value": "2" }, { "key": "pageSize", "value": "2" },
+              { "key": "orderBy", "value": "email" }, { "key": "order", "value": "asc" }
+            ]
+          }}
+        },
+        {
+          "name": "Valores inválidos (caem no padrão, sem erro)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK (não quebra)', () => pm.response.to.have.status(200));",
+            "const ids = pm.response.json().alunos.map(a => a.id);",
+            "pm.test('voltou para id asc', () => pm.expect(ids).to.eql([...ids].sort((a,b)=>a-b)));"
+          ]}}],
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/alunos?orderBy=senha&order=xyz",
+            "host": ["{{baseUrl}}"], "path": ["alunos"],
+            "query": [{ "key": "orderBy", "value": "senha" }, { "key": "order", "value": "xyz" }]
+          }}
+        }
+      ]
+    },
+    {
+      "name": "2 - Buscar por id (GET /alunos/:id)",
+      "item": [
+        {
+          "name": "Aluno existente → 200",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('é o aluno certo', () => pm.expect(pm.response.json().aluno.id).to.eql(Number(pm.collectionVariables.get('alunoId'))));"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/alunos/{{alunoId}}" }
+        },
+        {
+          "name": "Aluno inexistente → 404",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+            "pm.test('mensagem', () => pm.expect(pm.response.json().error).to.eql('Aluno não encontrado'));"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/alunos/999999" }
+        },
+        {
+          "name": "Id não numérico → 404",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ]}}],
+          "request": { "method": "GET", "url": "{{baseUrl}}/alunos/abc" }
+        }
+      ]
+    },
+    {
+      "name": "3 - Atualizar (PATCH /alunos/:id)",
+      "item": [
+        {
+          "name": "Só o nome → 200",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('nome alterado', () => pm.expect(pm.response.json().aluno.nome).to.eql('Postman Atualizado'));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Postman Atualizado\"\n}" },
+            "url": "{{baseUrl}}/alunos/{{alunoId}}"
+          }
+        },
+        {
+          "name": "Só o email → 200",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"atualizado{{$timestamp}}@ex.com\"\n}" },
+            "url": "{{baseUrl}}/alunos/{{alunoId}}"
+          }
+        },
+        {
+          "name": "Email de outro aluno → 409",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+            "pm.test('mensagem', () => pm.expect(pm.response.json().error).to.eql('Email já cadastrado para outro aluno'));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{outroEmail}}\"\n}" },
+            "url": "{{baseUrl}}/alunos/{{alunoId}}"
+          }
+        },
+        {
+          "name": "Corpo vazio → 400",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": "{{baseUrl}}/alunos/{{alunoId}}"
+          }
+        },
+        {
+          "name": "Email inválido → 400",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"nao-e-email\"\n}" },
+            "url": "{{baseUrl}}/alunos/{{alunoId}}"
+          }
+        },
+        {
+          "name": "Aluno inexistente → 404",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ]}}],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Ninguém\"\n}" },
+            "url": "{{baseUrl}}/alunos/999999"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 - Remover (DELETE /alunos/:id)",
+      "item": [
+        {
+          "name": "Remover aluno → 204",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+            "pm.test('sem corpo', () => pm.expect(pm.response.text()).to.eql(''));"
+          ]}}],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/alunos/{{alunoId}}" }
+        },
+        {
+          "name": "Remover de novo → 404",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ]}}],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/alunos/{{alunoId}}" }
+        },
+        {
+          "name": "Limpeza: remover o outro aluno → 204",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ]}}],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/alunos/{{outroAlunoId}}" }
+        }
+      ]
+    }
+  ]
+}
