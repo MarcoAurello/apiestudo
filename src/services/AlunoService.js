@@ -29,7 +29,9 @@ class AlunoService{
         return {alunos, total};
     }
 
-    async findUnique(id){
+    // incluirDetalhes: a tela do aluno precisa da turma dele e das matérias
+    // que ele estuda; as demais operações só precisam saber que ele existe.
+    async findUnique(id, incluirDetalhes = false){
         // o id chega como texto (request.params) e o campo no schema é Int
         const idNumerico = Number(id);
         // id que não é inteiro (ex.: /alunos/abc) nunca corresponde a um aluno
@@ -38,11 +40,30 @@ class AlunoService{
         }
 
         //SELECT * FROM alunos WHERE id = ?
+        // (+ turma do aluno e as matérias dessa turma, via MateriaTurma, se pedido)
         const aluno = await prisma.aluno.findUnique({
-            where: { id: idNumerico }
+            where: { id: idNumerico },
+            include: incluirDetalhes
+                ? {
+                    turma: {
+                        include: {
+                            materias: { include: { materia: true }, orderBy: { materia: { nome: "asc" } } }
+                        }
+                    }
+                }
+                : undefined
         });
         if(!aluno){
             throw new AlunoNaoEncontradoError();
+        }
+
+        if(incluirDetalhes){
+            // O aluno não tem matérias próprias: ele estuda as matérias da turma dele.
+            aluno.materias = aluno.turma ? aluno.turma.materias.map((v)=> v.materia) : [];
+            if(aluno.turma){
+                const {id, nome, numero} = aluno.turma;
+                aluno.turma = {id, nome, numero};
+            }
         }
 
         return aluno;

@@ -17,4 +17,36 @@ model Aluno{
   email String @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Cada aluno está em no máximo uma turma (1:N). Excluir a turma não
+  // apaga os alunos: eles só ficam sem turma (SetNull).
+  turmaId Int?
+  turma Turma? @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+}
+
+model Turma{
+  id Int @id @default(autoincrement())
+  nome String
+  numero Int @unique
+  alunos Aluno[]
+  materias MateriaTurma[]
+}
+
+model Materia{
+  id Int @id @default(autoincrement())
+  nome String
+  turmas MateriaTurma[]
+}
+
+// Tabela de ligação N:N entre Materia e Turma: uma turma tem várias
+// matérias e a mesma matéria pode estar em várias turmas.
+// Excluir a turma ou a matéria apaga só os vínculos dela (Cascade).
+model MateriaTurma{
+  id Int @id @default(autoincrement())
+  turmaId Int
+  materiaId Int
+  turma Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  materia Materia @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+
+  // a mesma matéria não pode ser vinculada duas vezes à mesma turma
+  @@unique([turmaId, materiaId])
 }

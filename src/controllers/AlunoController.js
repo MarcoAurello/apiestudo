@@ -25,7 +25,8 @@ class AlunoController{
 
     async findUnique(request, response){
         try{
-            const aluno = await alunoService.findUnique(request.params.id);
+            // o aluno vem com a turma (aluno.turma) e as matérias dela (aluno.materias)
+            const aluno = await alunoService.findUnique(request.params.id, true);
             return response.status(200).json({aluno});
         }catch(e){
             return responderErro(response, e);
